@@ -1,0 +1,4 @@
+.env
+stripe
+stripe.1.172.windows_x86_64
+*.pdf
