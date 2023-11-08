@@ -6,13 +6,26 @@ import psycopg2
 from psycopg2 import sql
 import os
 from dotenv import load_dotenv
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 
 load_dotenv()
 app = Flask(__name__)
-stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
+# Set up Azure Key Vault
+vault_url = 'https://icagkeys.vault.azure.net/'
+credential = DefaultAzureCredential()
+client = SecretClient(vault_url=vault_url, credential=credential)
 
-# This is your Stripe CLI webhook secret for testing your endpoint locally.
-endpoint_secret = os.environ.get('STRIPE_ENDPOINT_SECRET')
+# Retrieve secrets from Azure Key Vault
+stripe_api_key = client.get_secret("STRIPE-SECRET-KEY").value
+endpoint_secret = client.get_secret("STRIPE-ENDPOINT-SECRET").value
+dbname = client.get_secret("DB-NAME").value
+user = client.get_secret("DB-USER").value
+password = client.get_secret("DB-PASSWORD").value
+host = client.get_secret("DB-HOST").value
+port = client.get_secret("DB-PORT").value
+
+stripe.api_key = stripe_api_key
 
 @app.route('/webhook', methods=['POST'])
 def handle_webhook():
@@ -64,13 +77,6 @@ def handle_webhook():
     return 'Unhandled event', 400
 
 def update_database(amount, email):
-    # Connect to your PostgreSQL database and retrieve individual database components from environment variables
-    dbname = os.environ.get('DB_NAME')
-    user = os.environ.get('DB_USER')
-    password = os.environ.get('DB_PASSWORD')
-    host = os.environ.get('DB_HOST')
-    port = os.environ.get('DB_PORT')
-
     # Use the components to connect
     conn = psycopg2.connect(
         dbname=dbname,
